@@ -1,0 +1,23 @@
+# 기본은 모두 제외하고, 공개할 프로젝트 파일만 허용한다.
+# 데이터(AI Hub 원본·가공본·인덱스), 실험 기록, 보고서, 포트폴리오, 로그, 가상환경은 올리지 않는다.
+/*
+!/.gitignore
+!/.gitattributes
+!/.python-version
+!/.streamlit/
+!/README.md
+!/config.yaml
+!/pyproject.toml
+!/uv.lock
+!/run_app.bat
+!/src/
+!/docs/
+
+# scripts 는 데이터·보고서와 무관한 도구만
+!/scripts/
+/scripts/*
+!/scripts/compare_rounds.py
+!/scripts/ab_probe.py
+
+__pycache__/
+*.py[cod]

@@ -1,0 +1,18 @@
+# 로컬 전용 앱: 이 PC 에서만 접속(구독 CLI 로 LLM 을 호출하므로 외부에 열지 않는다)
+[server]
+address = "localhost"
+headless = true
+fileWatcherType = "none"
+
+[browser]
+gatherUsageStats = false
+
+[client]
+toolbarMode = "minimal"
+
+[theme]
+base = "light"
+primaryColor = "#008e65"
+backgroundColor = "#ffffff"
+secondaryBackgroundColor = "#f4f7f9"
+textColor = "#0f1721"

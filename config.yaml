@@ -1,0 +1,74 @@
+# 금융 상담 RAG + 고객 시뮬레이션 루프 설정
+# 경로는 프로젝트 루트(D:\project1) 기준 상대경로
+
+data:
+  raw_root: "25.금융분야 고객상담 데이터/3.개방데이터/2.데이터(NIA)"
+  processed_dir: data/processed
+  domains: [은행]            # 은행 먼저 → 보험, 증권 확장
+
+# 역할별 LLM. provider: openrouter | claude_cli | codex_cli
+# 테스트 단계는 구독(CLI), 이후 openrouter 로 provider/model 만 교체
+llm:
+  roles:
+    counselor:
+      provider: codex_cli
+      model: gpt-6-luna
+      reasoning_effort: max
+    reranker:                # 검색 후보 재정렬 (bge-reranker 는 CPU 에서 질의당 ~19초라 LLM 으로 대체)
+      provider: codex_cli
+      model: gpt-6-luna
+      reasoning_effort: medium
+    # 테스트 단계(API 미사용)는 router·customer·triage 도 GPT-6 Luna 구독으로.
+    # OpenRouter 전환 시: provider: openrouter / model: z-ai/glm-5.3-flash / temperature
+    #                    / extra: {reasoning: {effort: low, exclude: true}}
+    router:                  # 검색 질의 재작성 + 주제 분류
+      provider: codex_cli
+      model: gpt-6-luna
+      reasoning_effort: medium
+    customer:                # 상담사와 다른 모델 (Claude 구독)
+      provider: claude_cli
+      model: claude-haiku-5-5
+    judge:                   # 상담사와 다른 모델(자기 선호 편향·상관 오류 방지). Claude 구독 한도 때문에 Opus→Sonnet (2026-10-08)
+      provider: claude_cli
+      model: claude-sonnet-5-5
+    triage:                  # 5단계: dev 실패 → 교훈·합성사례 후보 (라운드당 1회)
+      provider: codex_cli
+      model: gpt-6-luna
+      reasoning_effort: high
+    gate:                    # 5단계: 후보 정적 검사 (중복·충돌·일반성·정확성). Opus 로 바꾸면 생성·검사 모델 분리
+      provider: codex_cli
+      model: gpt-6-luna
+      reasoning_effort: high
+  timeout_s: 600
+  max_retries: 4
+  rate_limit_wait_s: 900     # 구독 사용량 한도에 걸리면 대기 후 재시도
+  rate_limit_max_waits: 24
+  call_log: logs/llm_calls.jsonl
+
+counselor:
+  k_qa: 5                    # 상담사에게 넣는 QA 수
+  k_case: 3                  # 상담사례 요약 수
+  candidates: 30             # 리랭크 전 hybrid 후보 수 (컬렉션별)
+  rerank: llm                # llm | bge | none
+
+feedback:
+  global_cap: 5              # 항상 주입하는 범용 지침 최대 수
+  topic_k: 3                 # 턴마다 검색해 주입하는 주제별 교훈 수
+  lesson_min_sim: 0.50       # 주제별 교훈 검색 최소 유사도 (BGE-M3: 무관 0.38~0.44, 관련 0.58~0.73 실측)
+  min_support_lesson: 2      # 교훈 채택에 필요한 dev 실패 대화 수
+  min_support_case: 1        # 합성사례는 단일 지식 공백도 인정 (같은 사실이 20건 dev 에서 반복되는 경우가 드묾)
+  rollback_margin: 0.10      # holdout 종합점수가 직전 라운드보다 이만큼 넘게 떨어지면 직전 채택분 롤백
+  rollback_pass_drop: 0.05        # ...또는 합격률이 이만큼 이상 떨어지면
+  rollback_resolution_drop: 0.20  # ...또는 문제해결 점수가 이만큼 이상 떨어지면
+  rollback_misxfer_rise: 0.15     # ...또는 부적절이관 태그가 대화당 이만큼 이상 늘면
+  rollback_transfer_rise: 0.20    # ...또는 이관으로 끝난 통화 비율이 이만큼 이상 늘면 (r001→r002 실측: -6%p / -0.31 / +0.40 / +60%p)
+
+simulation:
+  seed: 42
+  dev_size: 20               # 구독 테스트 규모. OpenRouter 전환 시 100
+  holdout_size: 100          # 고정 holdout 벤치마크 전체 (2026-10-08 사용자 결정, 표준오차 축소)
+  holdout_benchmark_size: 100
+  holdout_pool_ratio: 0.2    # Validation 대화 중 holdout 풀 비율 (대화 단위 분리)
+  max_turns: 10
+  workers: 10                # 동시에 진행할 대화 수 (2026-10-08 사용자 지정: API 응답 지연으로 20→10)
+  temperament_dist: {보통: 0.60, 급함: 0.15, 불만: 0.15, 디지털미숙: 0.10}
