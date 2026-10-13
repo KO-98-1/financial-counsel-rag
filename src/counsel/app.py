@@ -41,7 +41,7 @@ def _retriever(domain: str) -> Retriever:
 
 @st.cache_resource(show_spinner=False, max_entries=4)
 def _counselor(domain: str, lessons: str, rerank: bool, store_version: int, measured: tuple[str, ...]) -> Counselor:
-    """교훈 구성 × 리랭크 조합마다 하나. 임베더·리랭커는 공유하고, 저장소 파일이 바뀌면(store_version) 새로 만든다."""
+    """사례 기반 수정 구성 × 리랭크 조합마다 하나. 임베더·리랭커는 공유하고, 저장소 파일이 바뀌면(store_version) 새로 만든다."""
     r = _retriever(domain).fork(rerank)
     if lessons == "none":
         return Counselor(domain, retriever=r, use_feedback=False)
@@ -88,15 +88,15 @@ def _sidebar(latest: str | None, measured: list[str], rate: float | None, active
         client_type = st.selectbox("개인 / 개인사업자", CLIENT_TYPES, disabled=locked)
 
         unverified = [i["id"] for i in active if i["source_round"] == latest]
-        labels = {"active": f"현재 활성 교훈 ({len(active)}개)", "none": "교훈 없음 (기준선)"}
+        labels = {"active": f"현재 활성 수정 ({len(active)}개)", "none": "수정 없음 (기준선)"}
         caps = {"active": (f"{latest}에서 새로 채택된 {len(unverified)}개는 아직 holdout 검증 전입니다." if unverified
                            else "저장소의 활성 항목 전부"),
-                "none": "교훈·합성사례 없이. 첫 라운드와 같은 조건"}
+                "none": "사례 기반 수정·합성사례 없이. 첫 라운드와 같은 조건"}
         if latest:
             labels["measured"] = f"{latest} 측정 구성 ({len(measured)}개)"
             caps["measured"] = f"{latest} holdout에서 측정한 구성" + (f" (합격률 {rate:.0%})" if rate is not None else "")
         opts = [o for o in ("active", "measured", "none") if o in labels]
-        lessons = st.radio("적용 교훈", opts, format_func=labels.get, captions=[caps[o] for o in opts], disabled=locked)
+        lessons = st.radio("사례 기반 수정", opts, format_func=labels.get, captions=[caps[o] for o in opts], disabled=locked)
         rerank = st.toggle("LLM 리랭크", value=True, disabled=locked,
                            help="근거 후보를 LLM 이 다시 고릅니다(완성 구성). 끄면 응답이 빨라지지만 평가한 구성과 달라집니다.")
         st.button("새 상담 시작", on_click=_reset, type="primary", width="stretch")
@@ -145,7 +145,7 @@ def _show(e: dict) -> None:
 def _details(e: dict) -> None:
     res: TurnResult = e["res"]
     total = sum(res.timings.values())
-    head = f"근거·진단 · 근거 {len(res.evidence)}건 중 {len(res.cited)}건 인용 · 교훈 {len(e['lessons'])}개 · {total:.0f}초"
+    head = f"근거·진단 · 근거 {len(res.evidence)}건 중 {len(res.cited)}건 인용 · 수정 {len(e['lessons'])}개 · {total:.0f}초"
     with st.expander(head):
         r = res.route
         if res.evidence_carried:                       # 검색을 건너뛴 턴의 query 는 고객 발화 그대로라 보여 주지 않는다
@@ -155,11 +155,11 @@ def _details(e: dict) -> None:
         names = (("route", "질문 분석"), ("retrieve", "검색·재정렬"), ("respond", "답변 작성"))
         st.caption(" · ".join(f"{label} {res.timings[k]:.1f}초" for k, label in names if k in res.timings))
         if e["lessons"]:
-            st.markdown("**주입된 교훈**")
+            st.markdown("**적용된 수정**")
             for l in e["lessons"]:
                 st.markdown(f"- `{l['id']}` ({l['scope']}) {dash.md(l['trigger'])} → {dash.md(l['text'])}")
         else:
-            st.caption("주입된 교훈 없음")
+            st.caption("적용된 수정 없음")
         st.markdown("**근거 자료** (✓ = 답변에 인용, 본문은 앞부분만)")
         for label, h in _labeled(res.evidence):
             kind = "합성사례" if h.id.startswith("SYN-") else ("QA" if h.collection == "qa" else "상담사례")

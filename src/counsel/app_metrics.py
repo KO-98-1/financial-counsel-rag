@@ -1,4 +1,4 @@
-"""앱 지표 화면: 라운드 비교 · 교훈·합성사례 · 내 상담 기록 (데이터는 dashboard.py)."""
+"""앱 지표 화면: 라운드 비교 · 수정·합성사례 · 내 상담 기록 (데이터는 dashboard.py)."""
 from __future__ import annotations
 
 import pandas as pd
@@ -13,7 +13,7 @@ _NUM = st.column_config.NumberColumn
 def metrics_page() -> None:
     domain = load_config()["data"]["domains"][0]
     st.title("지표")
-    t_rounds, t_lessons, t_mine = st.tabs(["라운드 비교", "교훈·합성사례", "내 상담 기록"])
+    t_rounds, t_lessons, t_mine = st.tabs(["라운드 비교", "수정·합성사례", "내 상담 기록"])
     with t_rounds:
         _rounds(domain)
     with t_lessons:
@@ -29,7 +29,7 @@ def _rounds(domain: str) -> None:
     if sm.empty:
         st.info("채점이 끝난 라운드가 없습니다. `python -m counsel.simulate 은행 --round r001` 로 라운드를 실행하세요.")
         return
-    st.caption("holdout 100건(고정 벤치마크)을 같은 심판으로 채점한 값입니다. 라운드마다 달라진 것은 상담사에게 적용한 교훈 구성입니다.")
+    st.caption("holdout 100건(고정 벤치마크)을 같은 심판으로 채점한 값입니다. 라운드마다 달라진 것은 상담사에게 적용한 사례 기반 수정 구성입니다.")
 
     mode = st.radio("변화 비교 대상", ["기준선(첫 라운드)", "직전 라운드"], horizontal=True)
     last = sm.iloc[-1]
@@ -104,14 +104,14 @@ def _rounds(domain: str) -> None:
             st.markdown(ev[1])
 
 
-# --- 교훈·합성사례 ---------------------------------------------------------------------
+# --- 사례 기반 수정·합성사례 ---------------------------------------------------------------------
 
 def _lessons(domain: str) -> None:
     items = dash.lesson_table(domain)
     if items.empty:
         st.info("피드백 저장소가 비어 있습니다.")
         return
-    st.caption("교훈은 상담사 프롬프트에 넣는 지침(범용은 항상, 주제별은 주제가 맞을 때만)이고, 합성사례는 지식 검색에 추가하는 QA입니다. "
+    st.caption("사례 기반 수정은 실패 사례에서 만든 지침으로, 상담사 프롬프트에 넣습니다(범용은 항상, 주제별은 주제가 맞을 때만). 합성사례는 지식 검색에 추가하는 QA입니다. "
                "롤백·거부·퇴출된 항목은 상담사에게 적용되지 않습니다.")
     states = list(items["상태"].unique())
     pick = st.multiselect("상태", states, default=["적용 중"] if "적용 중" in states else states)
@@ -140,7 +140,7 @@ def _mine(domain: str) -> None:
     k[1].metric("고객 발화", f"{len(df)}턴", border=True)
     k[2].metric("평균 응답", f"{df['응답(초)'].mean():.0f}초", border=True)
     k[3].metric("근거 인용 턴", f"{(df['인용 수'] > 0).mean():.0%}", border=True)
-    k[4].metric("교훈 주입 턴", f"{(df['교훈 주입'] > 0).mean():.0%}", border=True)
+    k[4].metric("수정 적용 턴", f"{(df['수정 적용'] > 0).mean():.0%}", border=True)
     k[5].metric("이관으로 끝남", f"{df.loc[df['이관'].notna(), '세션'].nunique()}회", border=True)
 
     a, b = st.columns(2)
@@ -165,5 +165,5 @@ def _mine(domain: str) -> None:
         with st.chat_message("assistant", avatar="🎧"):
             st.markdown(dash.md(r["상담사"]))
             sec = "" if pd.isna(r["응답(초)"]) else f" · {r['응답(초)']:.0f}초"
-            st.caption(f"주제 {r['주제']} · 근거 {r['근거 수']}건 중 {r['인용 수']}건 인용 · 교훈 {r['교훈 주입']}개{sec}"
+            st.caption(f"주제 {r['주제']} · 근거 {r['근거 수']}건 중 {r['인용 수']}건 인용 · 수정 {r['수정 적용']}개{sec}"
                        + (f" · 이관 → {r['이관']}" if pd.notna(r["이관"]) else "") + (f" · {r['구성']}" if r["구성"] else ""))

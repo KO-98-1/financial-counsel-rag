@@ -108,7 +108,7 @@ def latest_retrieval_eval(domain: str) -> tuple[str, str] | None:
     return (found[-1].parent.name, found[-1].read_text(encoding="utf-8")) if found else None
 
 
-# --- 교훈·합성사례 ---------------------------------------------------------------------
+# --- 사례 기반 수정·합성사례 ---------------------------------------------------------------------
 
 def latest_measured(domain: str) -> tuple[str | None, list[str], float | None]:
     """가장 최근 라운드와 그때 상담사에게 적용된 피드백 id, 그 라운드의 holdout 합격률."""
@@ -139,7 +139,7 @@ def lesson_table(domain: str) -> pd.DataFrame:
             topics, text = ", ".join(i.get("topics") or []), f"{i['trigger']} → {i['text']}"
         else:
             scope, topics, text = "합성사례", i.get("topic") or "", f"Q: {i['question']}  A: {i['answer']}"
-        rows.append({"ID": i["id"], "종류": "교훈" if i["kind"] == "lesson" else "합성사례", "범위": scope,
+        rows.append({"ID": i["id"], "종류": "수정" if i["kind"] == "lesson" else "합성사례", "범위": scope,
                      "상태": STATUS_KO.get(i["status"], i["status"]), "출처": i["source_round"],
                      "지지 대화": len({s["scenario_id"] for s in i.get("support") or []}), "주제": topics, "내용": text,
                      "이력": " / ".join(_event(h) for h in i.get("history") or [] if not h["action"].startswith("→"))})
@@ -169,7 +169,7 @@ def load_sessions() -> pd.DataFrame:
                              "상담사": r.get("reply"), "주제": route.get("topic"),
                              "검색": bool(route.get("search")) and not r.get("evidence_carried"),
                              "근거 수": len(r.get("evidence") or []), "인용 수": len(r.get("cited") or []),
-                             "교훈 주입": len(r.get("lessons") or []), "이관": r.get("transfer"),
+                             "수정 적용": len(r.get("lessons") or []), "이관": r.get("transfer"),
                              "분석(초)": t.get("route"), "검색(초)": t.get("retrieve"), "답변(초)": t.get("respond"),
                              "구성": (r.get("mode") or {}).get("label", "")})
     df = pd.DataFrame(rows)
